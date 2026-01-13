@@ -177,6 +177,7 @@ async def call_openrouter(session, messages, system_prompt, model, api_key, thin
     body = {"model": model, "max_tokens": 16000 if thinking else 8192, "messages": openai_messages, "tools": make_openai_schema()}
     if thinking:
         body["include_reasoning"] = True
+        # body["reasoning_split"] = True
 
     headers = {"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"}
     async with session.post(PROVIDERS["openrouter"]["url"], json=body, headers=headers) as resp:
@@ -230,6 +231,13 @@ async def main():
     print(f"{BOLD}nanocode{RESET} | {DIM}{args.provider}:{model}{thinking_indicator} | {os.getcwd()}{RESET}\n")
     messages = []
     system_prompt = f"Concise coding assistant. cwd: {os.getcwd()}"
+    
+    # Load AGENT.md if exists
+    agent_file = os.path.join(os.getcwd(), "AGENT.md")
+    if os.path.exists(agent_file):
+        agent_content = open(agent_file).read().strip()
+        system_prompt += f"\n\n<agent_instructions>\n{agent_content}\n</agent_instructions>"
+        print(f"{DIM}Loaded AGENT.md{RESET}\n")
 
     async with aiohttp.ClientSession() as session:
         while True:
