@@ -12,8 +12,8 @@ You are developer of nanocode, a minimal CLI coding assistant that serves as a l
 │       ├── __init__.py
 │       ├── __main__.py
 │       └── main.py
-├── AGENT.md
-├── nanocode.py
+├── .gitignore
+├── AGENT.md\
 ├── pyproject.toml
 ├── README.md
 └── uv.lock
@@ -23,4 +23,4 @@ You are developer of nanocode, a minimal CLI coding assistant that serves as a l
 
 * Write right and simple code which solve the user requests.
 * If you are unsure, ask for clarification.
-* Write what you did to DEVLOG.md to keep track the features/bugfixes implemented
+* Update DEVLOG.md to keep track the features/bugfixes implemented

@@ -8,6 +8,7 @@ import os
 import re
 import subprocess
 import aiohttp
+from markdownify import markdownify as md
 
 
 PROVIDERS = {
@@ -84,6 +85,37 @@ def bash(args):
     return (result.stdout + result.stderr).strip() or "(empty)"
 
 
+async def web_search(args):
+    """Search the web using Serper API"""
+    query = args["query"]
+    api_key = os.environ.get("SERPER_API_KEY", "")
+    if not api_key:
+        return "error: SERPER_API_KEY not set"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post(
+            "https://google.serper.dev/search",
+            json={"q": query},
+            headers={"X-API-Key": api_key},
+        ) as resp:
+            data = await resp.json()
+            results = data.get("organic", [])[:5]
+            if not results:
+                return "no results found"
+            output = []
+            for r in results:
+                output.append(f"- {r.get('title', '')}: {r.get('link', '')}")
+            return "\n".join(output)
+
+
+async def read_page(args):
+    """Read a URL and convert HTML to Markdown"""
+    url = args["url"]
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, ssl=False) as resp:
+            html = await resp.text()
+            return md(html)
+
 # --- Tool definitions: (description, schema, function) ---
 
 TOOLS = {
@@ -93,12 +125,20 @@ TOOLS = {
     "glob": ("Find files by pattern, sorted by mtime", {"pat": "string", "path": "string?"}, glob),
     "grep": ("Search files for regex pattern", {"pat": "string", "path": "string?"}, grep),
     "bash": ("Run shell command", {"cmd": "string"}, bash),
+    "web_search": ("Search the web using Serper API", {"query": "string"}, web_search),
+    "read_page": ("Read a URL and convert HTML to Markdown", {"url": "string"}, read_page),
 }
 
 
 def run_tool(name, args):
     try:
-        return TOOLS[name][2](args)
+        fn = TOOLS[name][2]
+        import asyncio
+        if asyncio.iscoroutinefunction(fn):
+            async def run():
+                return await fn(args)
+            return asyncio.run(run())
+        return fn(args)
     except Exception as err:
         return f"error: {err}"
 
@@ -172,7 +212,7 @@ async def call_openrouter(session, messages, system_prompt, model, api_key, thin
                 tool_calls = [{"id": b["id"], "type": "function", "function": {"name": b["name"], "arguments": json.dumps(b["input"])}} for b in msg["content"] if b.get("type") == "tool_use"]
                 openai_messages.append({"role": "assistant", "content": " ".join(text_parts) or None, **({"tool_calls": tool_calls} if tool_calls else {})})
             else:
-                openai_messages.append({"role": "assistant", "content": msg["content"]})
+                openai_messages.append({"role": "assistant", "content": str(msg["content"]) if msg["content"] else None})
 
     body = {"model": model, "max_tokens": 16000 if thinking else 8192, "messages": openai_messages, "tools": make_openai_schema()}
     if thinking:
@@ -303,6 +343,7 @@ def main():
                 except (KeyboardInterrupt, EOFError):
                     break
                 except Exception as err:
+                    raise err
                     print(f"{RED}⏺ Error: {err}{RESET}")
 
     asyncio.run(run())
