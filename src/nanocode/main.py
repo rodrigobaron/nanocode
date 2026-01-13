@@ -211,7 +211,7 @@ def render_markdown(text):
     return re.sub(r"\*\*(.+?)\*\*", f"{BOLD}\\1{RESET}", text)
 
 
-async def main():
+def main():
     parser = argparse.ArgumentParser(description="nanocode - minimal claude code alternative")
     parser.add_argument("--provider", "-p", choices=["anthropic", "openrouter"], default="anthropic", help="API provider")
     parser.add_argument("--model", "-m", help="Model to use (defaults: anthropic=claude-opus-4-5, openrouter=minimax/minimax-m1)")
@@ -239,70 +239,74 @@ async def main():
         system_prompt += f"\n\n<agent_instructions>\n{agent_content}\n</agent_instructions>"
         print(f"{DIM}Loaded AGENT.md{RESET}\n")
 
-    async with aiohttp.ClientSession() as session:
-        while True:
-            try:
-                print(separator())
-                user_input = await asyncio.to_thread(input, f"{BOLD}{BLUE}❯{RESET} ")
-                user_input = user_input.strip()
-                print(separator())
-                if not user_input:
-                    continue
-                if user_input in ("/q", "exit"):
-                    break
-                if user_input == "/c":
-                    messages = []
-                    print(f"{GREEN}⏺ Cleared conversation{RESET}")
-                    continue
-
-                messages.append({"role": "user", "content": user_input})
-
-                # agentic loop: keep calling API until no more tool calls
-                while True:
-                    response = await call_api(session, messages, system_prompt, args.provider, model, api_key, thinking)
-                    content_blocks = response.get("content", [])
-                    tool_results = []
-
-                    for block in content_blocks:
-                        if block["type"] == "thinking":
-                            thinking_preview = block["thinking"].replace("\n", " ")[:100]
-                            if len(block["thinking"]) > 100:
-                                thinking_preview += "..."
-                            print(f"\n{DIM}💭 {thinking_preview}{RESET}")
-
-                        if block["type"] == "text" and len(block['text'].strip()) > 0:
-                            print(f"\n{CYAN}⏺{RESET} {render_markdown(block['text'])}")
-
-                        if block["type"] == "tool_use":
-                            tool_name = block["name"]
-                            tool_args = block["input"]
-                            arg_preview = str(list(tool_args.values())[0])[:50] if tool_args else ""
-                            print(f"\n{GREEN}⏺ {tool_name.capitalize()}{RESET}({DIM}{arg_preview}{RESET})")
-
-                            result = await asyncio.to_thread(run_tool, tool_name, tool_args)
-                            result_lines = result.split("\n")
-                            preview = result_lines[0][:60]
-                            if len(result_lines) > 1:
-                                preview += f" ... +{len(result_lines) - 1} lines"
-                            elif len(result_lines[0]) > 60:
-                                preview += "..."
-                            print(f"  {DIM}⎿  {preview}{RESET}")
-
-                            tool_results.append({"type": "tool_result", "tool_use_id": block["id"], "content": result})
-
-                    messages.append({"role": "assistant", "content": content_blocks})
-
-                    if not tool_results:
+    import asyncio
+    async def run():
+        async with aiohttp.ClientSession() as session:
+            while True:
+                try:
+                    print(separator())
+                    user_input = await asyncio.to_thread(input, f"{BOLD}{BLUE}❯{RESET} ")
+                    user_input = user_input.strip()
+                    print(separator())
+                    if not user_input:
+                        continue
+                    if user_input in ("/q", "exit"):
                         break
-                    messages.append({"role": "user", "content": tool_results})
+                    if user_input == "/c":
+                        messages.clear()
+                        print(f"{GREEN}⏺ Cleared conversation{RESET}")
+                        continue
 
-                print()
+                    messages.append({"role": "user", "content": user_input})
 
-            except (KeyboardInterrupt, EOFError):
-                break
-            except Exception as err:
-                print(f"{RED}⏺ Error: {err}{RESET}")
+                    # agentic loop: keep calling API until no more tool calls
+                    while True:
+                        response = await call_api(session, messages, system_prompt, args.provider, model, api_key, thinking)
+                        content_blocks = response.get("content", [])
+                        tool_results = []
+
+                        for block in content_blocks:
+                            if block["type"] == "thinking":
+                                thinking_preview = block["thinking"].replace("\n", " ")[:100]
+                                if len(block["thinking"]) > 100:
+                                    thinking_preview += "..."
+                                print(f"\n{DIM}💭 {thinking_preview}{RESET}")
+
+                            if block["type"] == "text" and len(block['text'].strip()) > 0:
+                                print(f"\n{CYAN}⏺{RESET} {render_markdown(block['text'])}")
+
+                            if block["type"] == "tool_use":
+                                tool_name = block["name"]
+                                tool_args = block["input"]
+                                arg_preview = str(list(tool_args.values())[0])[:50] if tool_args else ""
+                                print(f"\n{GREEN}⏺ {tool_name.capitalize()}{RESET}({DIM}{arg_preview}{RESET})")
+
+                                result = await asyncio.to_thread(run_tool, tool_name, tool_args)
+                                result_lines = result.split("\n")
+                                preview = result_lines[0][:60]
+                                if len(result_lines) > 1:
+                                    preview += f" ... +{len(result_lines) - 1} lines"
+                                elif len(result_lines[0]) > 60:
+                                    preview += "..."
+                                print(f"  {DIM}⎿  {preview}{RESET}")
+
+                                tool_results.append({"type": "tool_result", "tool_use_id": block["id"], "content": result})
+
+                        messages.append({"role": "assistant", "content": content_blocks})
+
+                        if not tool_results:
+                            break
+                        messages.append({"role": "user", "content": tool_results})
+
+                    print()
+
+                except (KeyboardInterrupt, EOFError):
+                    break
+                except Exception as err:
+                    print(f"{RED}⏺ Error: {err}{RESET}")
+
+    asyncio.run(run())
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
