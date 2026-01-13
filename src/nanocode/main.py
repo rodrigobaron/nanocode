@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """nanocode - minimal claude code alternative"""
 
-import argparse, asyncio, glob as globlib, json, os, re, subprocess
+import argparse
+import glob as globlib
+import json 
+import os 
+import re
+import subprocess
+import aiohttp
 
-try:
-    import aiohttp
-except ImportError:
-    print("Installing aiohttp...")
-    subprocess.run(["pip", "install", "aiohttp", "-q"])
-    import aiohttp
 
 PROVIDERS = {
     "anthropic": {
