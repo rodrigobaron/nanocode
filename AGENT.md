@@ -13,7 +13,7 @@ You are developer of nanocode, a minimal CLI coding assistant that serves as a l
 │       ├── __main__.py
 │       └── main.py
 ├── .gitignore
-├── AGENT.md\
+├── AGENT.md
 ├── pyproject.toml
 ├── README.md
 └── uv.lock

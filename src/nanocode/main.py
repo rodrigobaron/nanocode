@@ -10,6 +10,8 @@ import subprocess
 import aiohttp
 from markdownify import markdownify as md
 
+from .skills import load_skills, format_skills_list
+
 
 PROVIDERS = {
     "anthropic": {
@@ -83,6 +85,9 @@ def grep(args):
 def bash(args):
     result = subprocess.run(args["cmd"], shell=True, capture_output=True, text=True, timeout=30)
     return (result.stdout + result.stderr).strip() or "(empty)"
+
+
+
 
 
 async def web_search(args):
@@ -279,6 +284,14 @@ def main():
         system_prompt += f"\n\n<agent_instructions>\n{agent_content}\n</agent_instructions>"
         print(f"{DIM}Loaded AGENT.md{RESET}\n")
 
+    # Load skills if exists
+    skills = load_skills()
+    if skills:
+        print(f"{DIM}Loaded {len(skills)} skill(s){RESET}\n")
+        # Add skills content to system prompt
+        for skill in skills.values():
+            system_prompt += f"\n<skill name=\"{skill.name}\">\n{skill.content}\n</skill>"
+
     import asyncio
     async def run():
         async with aiohttp.ClientSession() as session:
@@ -296,7 +309,37 @@ def main():
                         messages.clear()
                         print(f"{GREEN}⏺ Cleared conversation{RESET}")
                         continue
+                    if user_input == "/skills":
+                        print(f"\n{BOLD}Available Skills:{RESET}\n")
+                        if skills:
+                            for name, skill in sorted(skills.items()):
+                                print(f"  {BLUE}•{RESET} {BOLD}{name}{RESET}")
+                                print(f"      {DIM}{skill.description}{RESET}")
+                                if skill.license:
+                                    print(f"      {DIM}[{skill.license}]{RESET}")
+                        else:
+                            print(f"  {DIM}No skills loaded. Create a 'skills/' folder with .md files.{RESET}")
+                        print()
+                        continue
 
+                    # Handle slash commands for skill activation
+                    if user_input.startswith("/"):
+                        parts = user_input.split(" ", 1)
+                        skill_cmd = parts[0][1:]  # Remove leading "/"
+                        user_msg = parts[1] if len(parts) > 1 else ""
+
+                        if skill_cmd in skills:
+                            skill = skills[skill_cmd]
+                            # Prepend skill context to user message
+                            user_input = f"""<skill name="{skill.name}">
+{skill.content}
+</skill>
+
+{user_msg}"""
+                            print(f"{DIM}⏺ Activated skill: {skill_cmd}{RESET}\n")
+                        else:
+                            print(f"{YELLOW}⏺ Unknown skill: {skill_cmd}. Available: {', '.join(skills.keys())}{RESET}\n")
+                            continue
                     messages.append({"role": "user", "content": user_input})
 
                     # agentic loop: keep calling API until no more tool calls
