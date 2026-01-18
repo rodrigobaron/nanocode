@@ -56,7 +56,7 @@ def load_skill(filepath: str) -> Optional[Skill]:
         return None
 
 
-def load_skills(skills_dir: str = "skills") -> dict[str, Skill]:
+def load_skills(skills_dir: str = ".agent/skills") -> dict[str, Skill]:
     """Load all skills from the skills directory."""
     skills = {}
     skills_path = Path(skills_dir)

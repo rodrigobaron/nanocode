@@ -277,8 +277,8 @@ def main():
     messages = []
     system_prompt = f"Concise coding assistant. cwd: {os.getcwd()}"
     
-    # Load AGENT.md if exists
-    agent_file = os.path.join(os.getcwd(), "AGENT.md")
+    # Load .agent/AGENT.md if exists
+    agent_file = os.path.join(os.getcwd(), ".agent", "AGENT.md")
     if os.path.exists(agent_file):
         agent_content = open(agent_file).read().strip()
         system_prompt += f"\n\n<agent_instructions>\n{agent_content}\n</agent_instructions>"
@@ -318,7 +318,7 @@ def main():
                                 if skill.license:
                                     print(f"      {DIM}[{skill.license}]{RESET}")
                         else:
-                            print(f"  {DIM}No skills loaded. Create a 'skills/' folder with .md files.{RESET}")
+                            print(f"  {DIM}No skills loaded. Create a '.agent/skills/' folder with .md files.{RESET}")
                         print()
                         continue
 
