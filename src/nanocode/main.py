@@ -303,43 +303,131 @@ def main():
                     print(separator())
                     if not user_input:
                         continue
-                    if user_input in ("/q", "exit"):
+                    if user_input in ("/q", "/exit", "/quit", "exit"):
                         break
                     if user_input == "/c":
                         messages.clear()
                         print(f"{GREEN}⏺ Cleared conversation{RESET}")
                         continue
-                    if user_input == "/skills":
-                        print(f"\n{BOLD}Available Skills:{RESET}\n")
-                        if skills:
-                            for name, skill in sorted(skills.items()):
-                                print(f"  {BLUE}•{RESET} {BOLD}{name}{RESET}")
-                                print(f"      {DIM}{skill.description}{RESET}")
-                                if skill.license:
-                                    print(f"      {DIM}[{skill.license}]{RESET}")
-                        else:
-                            print(f"  {DIM}No skills loaded. Create a '.agent/skills/' folder with .md files.{RESET}")
-                        print()
-                        continue
 
-                    # Handle slash commands for skill activation
+                    # Handle slash commands for built-in commands and skills
                     if user_input.startswith("/"):
                         parts = user_input.split(" ", 1)
-                        skill_cmd = parts[0][1:]  # Remove leading "/"
+                        cmd = parts[0]
                         user_msg = parts[1] if len(parts) > 1 else ""
 
-                        if skill_cmd in skills:
-                            skill = skills[skill_cmd]
-                            # Prepend skill context to user message
-                            user_input = f"""<skill name="{skill.name}">
+                        # Exit commands
+                        if cmd in ("/q", "/exit", "/quit"):
+                            break
+
+                        # Built-in commands that prepare prompt for LLM
+                        if cmd == "/init":
+                            user_input = """# Instructions for Creating a AGENT.md File for nanocode
+
+A `AGENT.md` file is a special configuration file that gives nanocode context about your project. Place it in your project's root directory.
+
+---
+
+## What to Include in AGENT.md
+
+### 1. **Project Overview**
+```markdown
+# Project Name
+
+Brief description of what the project does and its purpose.
+
+## Tech Stack
+- Language: Python 3.11
+- Framework: FastAPI
+- Database: PostgreSQL
+- Frontend: React + TypeScript
+```
+
+### 2. **Project Structure**
+```markdown
+## Project Structure
+- `/src` - Main application code
+- `/tests` - Unit and integration tests
+- `/docs` - Documentation
+- `/scripts` - Build and deployment scripts
+```
+
+### 3. **Development Commands**
+```markdown
+## Common Commands
+- `npm run dev` - Start development server
+- `npm run test` - Run tests
+- `npm run lint` - Run linter
+- `npm run build` - Build for production
+```
+
+### 4. **Coding Conventions**
+```markdown
+## Code Style
+- Use 4 spaces for indentation
+- Prefer functional components over class components
+- All functions must have type annotations
+- Use descriptive variable names (no single letters except loop indices)
+```
+
+### 5. **Important Context**
+```markdown
+## Important Notes
+- Never commit API keys to the repository
+- All database migrations must be backwards compatible
+- The `/legacy` folder contains deprecated code - don't modify
+- Use the `utils/logger.py` module for all logging
+```
+
+### 6. **Testing Requirements**
+```markdown
+## Testing
+- All new features require unit tests
+- Minimum 80% code coverage
+- Run `pytest` before committing
+```
+
+### 7. **Preferences for nanocode**
+```markdown
+## nanocode Preferences
+- When creating new files, follow existing naming conventions
+- Prefer composition over inheritance
+- Always add error handling for external API calls
+- Include docstrings for all public functions
+```
+
+Inspect current project and create or update the AGENT.md in ./.agent/AGENT.md location.
+"""
+
+                        # List skills command
+                        elif cmd == "/skills":
+                            print(f"\n{BOLD}Available Skills:{RESET}\n")
+                            if skills:
+                                for name, skill in sorted(skills.items()):
+                                    print(f"  {BLUE}•{RESET} {BOLD}{name}{RESET}")
+                                    print(f"      {DIM}{skill.description}{RESET}")
+                                    if skill.license:
+                                        print(f"      {DIM}[{skill.license}]{RESET}")
+                            else:
+                                print(f"  {DIM}No skills loaded. Create a '.agent/skills/' folder with .md files.{RESET}")
+                            print()
+                            continue
+
+                        # Check for skill commands (e.g., /bash-script)
+                        else:
+                            skill_cmd = cmd[1:]  # Remove leading "/"
+                            if skill_cmd in skills:
+                                skill = skills[skill_cmd]
+                                # Prepend skill context to user message
+                                user_input = f"""<skill name="{skill.name}">
 {skill.content}
 </skill>
 
 {user_msg}"""
-                            print(f"{DIM}⏺ Activated skill: {skill_cmd}{RESET}\n")
-                        else:
-                            print(f"{YELLOW}⏺ Unknown skill: {skill_cmd}. Available: {', '.join(skills.keys())}{RESET}\n")
-                            continue
+                                print(f"{DIM}⏺ Activated skill: {skill_cmd}{RESET}\n")
+                            else:
+                                print(f"{YELLOW}⏺ Unknown command/skill: {skill_cmd}. Use /init or /skills, or create a skill in .agent/skills/{RESET}\n")
+                                continue
                     messages.append({"role": "user", "content": user_input})
 
                     # agentic loop: keep calling API until no more tool calls
@@ -386,7 +474,6 @@ def main():
                 except (KeyboardInterrupt, EOFError):
                     break
                 except Exception as err:
-                    raise err
                     print(f"{RED}⏺ Error: {err}{RESET}")
 
     asyncio.run(run())
